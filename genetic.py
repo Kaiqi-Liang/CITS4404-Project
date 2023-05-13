@@ -1,8 +1,8 @@
+import copy
 import random
 import numpy as np
-from data import StrSeriesPairs
 import pandas as pd
-import copy
+from data import StrSeriesPairs
 
 # Language to express candidate solutions which are defined by Gene, a subset of the dnf
 Expression = tuple[str, float, str]
@@ -130,6 +130,5 @@ def mutation(pool: Population, n_mutations = 5, mutation_std = 1):
 		expression[1] = np.random.normal(0, mutation_std, 1)[0]
 
 def format_trigger(expressions: list[Expression]):
-	format_exp = lambda exp: f'{exp[0]} > {exp[1]:.5f} * {exp[2]}'
-	formatted = list(map(format_exp, [exp for exp in expressions]))
+	formatted = [f'{exp[0]} > {exp[1]:.5f} * {exp[2]}' for exp in expressions]
 	return '( {} && {} ) || ( {} && {} )'.format(*formatted)

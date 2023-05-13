@@ -1,16 +1,16 @@
-import pandas as pd
-import numpy as np
-from tqdm import tqdm
-from data import retrieve_data, list_indicators_and_candle_values, add_all_indicators, save_data
-from genetic import Population, format_trigger, get_expression, rand_trigger, evaluate, selection, crossover, mutation, get_indicator_and_candle_values_from_gene, fitness
-import random
-import optuna
 import copy
+import random
 import sys
+import optuna
+import numpy as np
+import pandas as pd
+from tqdm import tqdm
+from data import retrieve_data, list_indicators_and_candle_values, add_all_indicators
+from genetic import Population, format_trigger, get_expression, rand_trigger, evaluate, selection, crossover, mutation, get_indicator_and_candle_values_from_gene
 
 MAX_ITER = 30
 POPULATION = 501
-USE_OPTUNA = True if len(sys.argv) == 2 and sys.argv[1] == 'Optuna' else False
+USE_OPTUNA = len(sys.argv) == 2 and sys.argv[1] == 'Optuna'
 
 # Seeding to ensure same initial conditions
 SEED = random.randint(0, 100000)
@@ -27,9 +27,9 @@ DEFAULT_PARAMS = {
 
 # Defines the searchspace for OPTUNA
 OPTUNA_SEARCHSPACE = {
-	'MUTATION_STD': [_ for _ in np.linspace(0.1, 3, 20)],
-	'N_MUTATIONS': [_ for _ in range(5, 25)],
-	'N_CROSSOVER': [_ for _ in range(100, POPULATION, 25)],
+	'MUTATION_STD': list(np.linspace(0.1, 3, 20)),
+	'N_MUTATIONS': list(range(5, 25)),
+	'N_CROSSOVER': list(range(100, POPULATION, 25)),
 }
 
 def run(df_rows: list, indicators_and_candle_values, trial: optuna.trial=None):
@@ -62,7 +62,7 @@ def run(df_rows: list, indicators_and_candle_values, trial: optuna.trial=None):
 
 		# Report to optuna
 		if trial is not None:
-			trial.report(fit_sum/len(pool), epoch)
+			trial.report(fit_sum / len(pool), epoch)
 
 			if epoch > 10 and trial.should_prune():
 				raise optuna.TrialPruned()
@@ -87,8 +87,7 @@ def run(df_rows: list, indicators_and_candle_values, trial: optuna.trial=None):
 
 	if trial is None:
 		return (max_pos, max_fit, fit_sum, fitnesses), bot_record, pool
-	else:
-		return fit_sum / len(pool)
+	return fit_sum / len(pool)
 
 if __name__=='__main__':
 	# Allow printing the entire data frame
@@ -109,14 +108,14 @@ if __name__=='__main__':
 		print(f'buy trigger: {format_trigger(expressions[:4])}')
 		print(f'sell trigger: {format_trigger(expressions[4:])}')
 		print(f'best bot earns ${max_fit:.5f}')
-		save_data(f'bot_record.csv', bot_record)
+		pd.DataFrame(bot_record).to_csv('fitness.csv', index=True, index_label='epoch')
 
 	# Do a hyperparameter search with Optuna
 	else:
 		study = optuna.create_study(direction="maximize",
 									sampler = optuna.samplers.GridSampler(search_space=OPTUNA_SEARCHSPACE),
 									pruner = optuna.pruners.MedianPruner(),
-									storage = f'sqlite:///db.sqlite3',
+									storage = 'sqlite:///db.sqlite3',
 									study_name = f'seed_{SEED:05}',
 								   )
 		study.optimize(lambda trial: run(df_rows, indicators_and_candle_values, trial=trial))
